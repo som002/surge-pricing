@@ -1,0 +1,16 @@
+# Terraform state files
+*.tfstate
+*.tfstate.backup
+.terraform/
+
+# Python
+__pycache__/
+*.pyc
+
+# Environment files
+.env
+
+# Credentials
+*.json
+*.pem
+*.key

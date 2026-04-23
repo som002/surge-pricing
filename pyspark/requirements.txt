@@ -1,0 +1,4 @@
+pyspark
+Faker
+kafka-python
+google-cloud-storage

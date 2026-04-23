@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surge Pricing Live UI</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-hot: #ef4444;
+            --accent-cool: #10b981;
+            --accent-warm: #f59e0b;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+            background-image:
+                radial-gradient(at 0% 0%, rgba(29, 78, 216, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(220, 38, 38, 0.15) 0px, transparent 50%);
+            min-height: 100vh;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+            animation: fadeInDown 0.8s ease;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin: 0 0 10px 0;
+            background: linear-gradient(135deg, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            animation: fadeIn 0.5s ease backwards;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Hotspot specific styling */
+        .card.hotspot {
+            border-color: rgba(239, 68, 68, 0.3);
+            background: linear-gradient(180deg, rgba(239, 68, 68, 0.05) 0%, var(--glass-bg) 100%);
+        }
+
+        .card.hotspot::after {
+            content: '🔥 HOTSPOT';
+            position: absolute;
+            top: 12px;
+            right: -24px;
+            background: var(--accent-hot);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: bold;
+            padding: 4px 24px;
+            transform: rotate(45deg);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .zone-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .zone-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+            color: #fff;
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .metric-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .metric {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+
+        .metric-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .surge-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            text-align: right;
+            line-height: 1;
+        }
+
+        .surge-active {
+            color: var(--accent-hot);
+        }
+
+        .surge-elevated {
+            color: var(--accent-warm);
+        }
+
+        .surge-normal {
+            color: var(--accent-cool);
+        }
+
+        .time-info {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Loading Spinner */
+        #loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: #60a5fa;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .controls {
+            margin-top: 25px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn.active {
+            background: rgba(96, 165, 250, 0.2);
+            border-color: #60a5fa;
+            color: #60a5fa;
+        }
+
+        .btn-danger {
+            border-color: rgba(239, 68, 68, 0.4) !important;
+            color: var(--accent-hot) !important;
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.1) !important;
+            border-color: var(--accent-hot) !important;
+        }
+
+        .table-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            overflow: hidden;
+            animation: fadeIn 0.5s ease backwards;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .data-table th {
+            background: rgba(0, 0, 0, 0.2);
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .data-table tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .hotspot-row {
+            background: linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%);
+        }
+
+        /* Navbar & Dropdown Styles */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+            z-index: 1000;
+        }
+
+        .nav-logo {
+            font-weight: 800;
+            font-size: 1.2rem;
+            background: linear-gradient(135deg, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-admin {
+            position: relative;
+        }
+
+        .admin-trigger {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+        }
+
+        .admin-trigger:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .admin-dropdown {
+            position: absolute;
+            top: calc(100% + 12px);
+            right: 0;
+            width: 240px;
+            background: #1e293b;
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            padding: 16px;
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1001;
+        }
+
+        .admin-dropdown.active {
+            display: flex;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .admin-dropdown input {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            width: 100%;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .admin-dropdown input:focus {
+            border-color: #60a5fa;
+        }
+
+        .auth-error {
+            font-size: 0.7rem;
+            color: var(--accent-hot);
+            text-align: center;
+            margin-top: -4px;
+            display: none;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-5px);
+            }
+
+            75% {
+                transform: translateX(5px);
+            }
+        }
+
+        .shake {
+            animation: shake 0.3s cubic-bezier(.36, .07, .19, .97) both;
+        }
+
+        .auth-status {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <div class="nav-logo">SURGE.IO</div>
+        <div class="nav-admin" id="nav-admin">
+            <div class="admin-trigger" onclick="toggleAdminDropdown()">
+                <span>Admin Panel</span>
+                <span>▼</span>
+            </div>
+            <div class="admin-dropdown" id="adminDropdown">
+                <div id="unauth-view">
+                    <div class="auth-status">System Access Required</div>
+                    <input type="password" id="adminPassword" placeholder="Enter password..."
+                        onkeyup="if(event.key==='Enter') loginAdmin()">
+                    <div id="login-error" class="auth-error">Incorrect password. Access denied.</div>
+                    <button class="btn" style="width: 100%; margin-top: 8px;" onclick="loginAdmin()">Authorize</button>
+                </div>
+                <div id="auth-view" style="display: none;">
+                    <div class="auth-status" style="color: var(--accent-cool)">✓ Admin Session Active</div>
+                    <button id="clearBtn" class="btn btn-danger" style="width: 100%;" onclick="clearData()">Clear Live
+                        Data</button>
+                    <button class="btn" style="width: 100%; margin-top: 8px; border:none; font-size: 0.75rem;"
+                        onclick="logoutAdmin()">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="header" style="margin-top: 80px;">
+        <h1>Live Surge Dashboard</h1>
+        <p>Real-time Aggregation of Supply vs Demand</p>
+        <div class="controls">
+            <button id="viewGridBtn" class="btn active" onclick="setViewMode('grid')">Grid View</button>
+            <button id="viewTableBtn" class="btn" onclick="setViewMode('table')">Table View</button>
+            <button id="sortBtn" class="btn" onclick="toggleSort()">Sort: Default</button>
+        </div>
+    </div>
+
+    <div id="loading">
+        <div class="spinner"></div>
+        <div>Waiting for PySpark batch...</div>
+    </div>
+
+    <div class="grid" id="grid"></div>
+
+    <div class="table-container" id="table-container" style="display: none;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Zone ID</th>
+                    <th>Demand</th>
+                    <th>Supply</th>
+                    <th>Multiplier</th>
+                    <th>Hotspot</th>
+                </tr>
+            </thead>
+            <tbody id="table-body">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const grid = document.getElementById('grid');
+        const loading = document.getElementById('loading');
+
+        let viewMode = 'grid';
+        let sortByHotspot = false;
+
+        function setViewMode(mode) {
+            viewMode = mode;
+            document.getElementById('viewGridBtn').className = mode === 'grid' ? 'btn active' : 'btn';
+            document.getElementById('viewTableBtn').className = mode === 'table' ? 'btn active' : 'btn';
+
+            document.getElementById('grid').style.display = mode === 'grid' ? 'grid' : 'none';
+            document.getElementById('table-container').style.display = mode === 'table' ? 'block' : 'none';
+            fetchState();
+        }
+
+        function toggleSort() {
+            sortByHotspot = !sortByHotspot;
+            document.getElementById('sortBtn').textContent = sortByHotspot ? 'Sort: Highest Surge' : 'Sort: Default';
+            document.getElementById('sortBtn').className = sortByHotspot ? 'btn active' : 'btn';
+            fetchState();
+        }
+
+        function formatSurge(multiplier) {
+            return `x${multiplier.toFixed(2)}`;
+        }
+
+        function getSurgeClass(multiplier) {
+            if (multiplier >= 2.0) return 'surge-active';
+            if (multiplier > 1.2) return 'surge-elevated';
+            return 'surge-normal';
+        }
+
+        async function fetchState() {
+            try {
+                const response = await fetch('/api/state');
+                const data = await response.json();
+
+                if (data.error || !Array.isArray(data)) {
+                    return; // Retain current UI if bad data read
+                }
+
+                if (data.length === 0) {
+                    // State was likely cleared by the backend stopping
+                    grid.innerHTML = '';
+                    const tbody = document.getElementById('table-body');
+                    if (tbody) tbody.innerHTML = '';
+                    loading.style.display = 'block';
+                    return;
+                }
+
+                loading.style.display = 'none';
+
+                let renderData = [...data];
+                if (sortByHotspot) {
+                    renderData.sort((a, b) => b.surge_multiplier - a.surge_multiplier);
+                } else {
+                    renderData.sort((a, b) => a.zone_id.localeCompare(b.zone_id)); // default order
+                }
+
+                if (viewMode === 'table') {
+                    const tbody = document.getElementById('table-body');
+                    tbody.innerHTML = '';
+                    renderData.forEach(zone => {
+                        const tr = document.createElement('tr');
+                        if (zone.is_hotspot) tr.className = 'hotspot-row';
+                        tr.innerHTML = `
+                            <td><strong>${zone.zone_id}</strong></td>
+                            <td>${zone.demand_count}</td>
+                            <td>${zone.supply_count}</td>
+                            <td class="${getSurgeClass(zone.surge_multiplier)}" style="font-weight: 800">${formatSurge(zone.surge_multiplier)}</td>
+                            <td>${zone.is_hotspot ? '🔥 Yes' : 'No'}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    // Identify current zones to remove stale ones
+                    const currentZoneIds = new Set(renderData.map(z => `zone-${z.zone_id}`));
+                    Array.from(grid.children).forEach(child => {
+                        if (!currentZoneIds.has(child.id)) {
+                            child.remove();
+                        }
+                    });
+
+                    renderData.forEach((zone, index) => {
+                        let card = document.getElementById(`zone-${zone.zone_id}`);
+                        const innerHTML = `
+                        <div class="zone-header">
+                            <h2 class="zone-title">${zone.zone_id}</h2>
+                        </div>
+                        
+                        <div class="metric-row">
+                            <div class="metric">
+                                <span class="metric-label">Demand</span>
+                                <span class="metric-value">${zone.demand_count}</span>
+                            </div>
+                            <div class="metric" style="text-align: right">
+                                <span class="metric-label">Supply</span>
+                                <span class="metric-value">${zone.supply_count}</span>
+                            </div>
+                        </div>
+
+                        <div class="metric-row" style="align-items: flex-end; border:none;">
+                            <div class="metric">
+                                <span class="metric-label">Surge Pricing</span>
+                            </div>
+                            <div class="surge-value ${getSurgeClass(zone.surge_multiplier)}">
+                                ${formatSurge(zone.surge_multiplier)}
+                            </div>
+                        </div>
+                    `;
+
+                        if (!card) {
+                            card = document.createElement('div');
+                            card.id = `zone-${zone.zone_id}`;
+                            card.className = `card ${zone.is_hotspot ? 'hotspot' : ''}`;
+                            card.style.animationDelay = `${index * 0.05}s`;
+                            card.innerHTML = innerHTML;
+                            grid.appendChild(card);
+                        } else {
+                            // Only update if something changed (simplest fix for UX is to just replace innerHTML, 
+                            // DOM engines optimize this well enough as long as the parent .card wrapper persists)
+                            card.className = `card ${zone.is_hotspot ? 'hotspot' : ''}`;
+                            card.innerHTML = innerHTML;
+                        }
+                        // Apply dynamic CSS ordering to match the array order in grid view
+                        card.style.order = index;
+                    });
+                }
+
+            } catch (error) {
+                console.error("Error fetching state:", error);
+            }
+        }
+
+        // Admin & Auth Logic
+        let isAdmin = false;
+        let adminPassword = '';
+
+        function toggleAdminDropdown() {
+            document.getElementById('adminDropdown').classList.toggle('active');
+        }
+
+        // Close dropdown when clicking outside
+        window.onclick = function (event) {
+            if (!event.target.closest('.nav-admin')) {
+                document.getElementById('adminDropdown').classList.remove('active');
+            }
+        }
+
+        function loginAdmin() {
+            const passInput = document.getElementById('adminPassword');
+            const errorMsg = document.getElementById('login-error');
+            const dropdown = document.getElementById('adminDropdown');
+
+            if (passInput.value.length > 0) {
+                isAdmin = true;
+                adminPassword = passInput.value;
+                errorMsg.style.display = 'none';
+                document.getElementById('unauth-view').style.display = 'none';
+                document.getElementById('auth-view').style.display = 'block';
+                passInput.value = '';
+            } else {
+                // Shake effect & error message
+                errorMsg.style.display = 'block';
+                dropdown.classList.remove('shake');
+                void dropdown.offsetWidth; // Trigger reflow
+                dropdown.classList.add('shake');
+            }
+        }
+
+        function logoutAdmin() {
+            isAdmin = false;
+            document.getElementById('unauth-view').style.display = 'block';
+            document.getElementById('auth-view').style.display = 'none';
+        }
+
+        async function clearData() {
+            if (!isAdmin) {
+                alert('Session expired. Please re-authorize.');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to clear all live surge data?')) return;
+
+            const btn = document.getElementById('clearBtn');
+            const originalText = btn.textContent;
+            btn.textContent = 'Clearing...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/clear', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        password: adminPassword
+                    }), // In a real app, use the actual input value
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    await fetchState();
+                    toggleAdminDropdown();
+                } else {
+                    alert('Failed to clear data: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error clearing data:', error);
+                alert('Error connecting to server.');
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // Poll the server for new PySpark output every 5 seconds
+        setInterval(fetchState, 5000);
+        fetchState(); // Initial fetch
+    </script>
+</body>

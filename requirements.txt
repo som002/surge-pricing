@@ -1,0 +1,6 @@
+google-cloud-storage
+pyspark
+Faker
+kafka-python
+apache-airflow
+apache-airflow-providers-ssh
