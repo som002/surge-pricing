@@ -8,6 +8,8 @@ The architecture is highly decoupled and designed for **horizontal scaling**, ma
 
 ## 🏗️ Architecture Overview
 
+![Pipeline Architecture](Pipeine-Uber-like-backend.svg)
+
 The system consists of the following isolated components:
 1. **Kafka Cluster:** Acts as the message broker. Receives raw event data.
 2. **Data Generator (`pyspark/data_generator.py`):** Simulates thousands of real-time ride requests and driver pings, publishing them to Kafka.
